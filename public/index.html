@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Movie Club — голосование</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<main class="wrap">
+  <header>
+    <div class="muted small">🎬 MOVIE CLUB</div>
+    <h1 id="title">Загрузка…</h1>
+    <div id="status"></div>
+  </header>
+
+  <section id="voteView" class="hidden">
+    <p class="muted">Выберите фильм, который хотите посмотреть на следующем клубе.</p>
+    <div class="movies" id="movies"></div>
+
+    <form class="panel" id="form" novalidate>
+      <h2>Ваш голос: <span id="chosen" class="muted">фильм не выбран</span></h2>
+      <div class="grid2">
+        <div class="field">
+          <label for="firstName">Имя *</label>
+          <input id="firstName" autocomplete="given-name" maxlength="40" required>
+        </div>
+        <div class="field">
+          <label for="lastName">Фамилия *</label>
+          <input id="lastName" autocomplete="family-name" maxlength="40" required>
+        </div>
+      </div>
+      <div class="field">
+        <label for="reason">Почему вы голосуете за этот фильм? <span class="small">(необязательно)</span></label>
+        <textarea id="reason" maxlength="500"></textarea>
+      </div>
+      <button class="primary" id="submit" type="submit">Проголосовать</button>
+      <div id="msg"></div>
+    </form>
+  </section>
+
+  <section id="doneView" class="panel done hidden">
+    <div class="big">🍿</div>
+    <h2>Спасибо, голос принят!</h2>
+    <p class="muted" id="doneText"></p>
+  </section>
+
+  <section id="infoView" class="panel done hidden">
+    <div class="big" id="infoIcon">⏳</div>
+    <p class="muted" id="infoText"></p>
+  </section>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch {} },
+};
+
+let poll, movies = [], selected = null, serverTime;
+
+function show(view) {
+  for (const v of ["voteView", "doneView", "infoView"]) $(v).classList.toggle("hidden", v !== view);
+}
+function info(icon, text) { $("infoIcon").textContent = icon; $("infoText").textContent = text; show("infoView"); }
+
+async function load() {
+  try {
+    const r = await fetch("/api/poll");
+    if (!r.ok) throw new Error();
+    ({ poll, movies, serverTime } = await r.json());
+  } catch {
+    $("title").textContent = "Movie Club";
+    return info("⚠️", "Не удалось загрузить голосование. Попробуйте обновить страницу.");
+  }
+  $("title").textContent = poll.title;
+  document.title = poll.title + " — голосование";
+  const when = (iso) => new Date(iso).toLocaleString("ru-RU", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" });
+  $("status").innerHTML =
+    poll.status === "open"
+      ? `<span class="badge open">Голосование открыто</span>${poll.endsAt ? ` <span class="muted small">до ${when(poll.endsAt)}</span>` : ""}`
+      : poll.status === "scheduled"
+      ? `<span class="badge closed">Скоро</span> <span class="muted small">начало ${when(poll.startsAt)}</span>`
+      : '<span class="badge closed">Голосование завершено</span>';
+
+  // reload automatically when the poll starts or ends (capped: setTimeout overflows past ~24 days)
+  clearTimeout(window.__t);
+  const edge = poll.status === "scheduled" ? poll.startsAt : poll.status === "open" ? poll.endsAt : null;
+  if (edge) {
+    const ms = Date.parse(edge) - Date.parse(serverTime) + 1500;
+    if (ms < 864e5) window.__t = setTimeout(load, Math.max(ms, 1000));
+  }
+
+  const prev = store.get("voted:" + poll.id);
+  if (prev) { $("doneText").textContent = "Вы уже проголосовали за «" + prev + "»."; return show("doneView"); }
+  if (poll.status === "scheduled") return info("⏳", "Голосование начнётся " + when(poll.startsAt) + ". Страница обновится сама.");
+  if (poll.status === "ended") return info("⛔", "Голосование завершено. Спасибо всем, кто участвовал!");
+  if (!movies.length) return info("⏳", "Фильмы ещё не добавлены. Загляните позже.");
+
+  $("movies").innerHTML = movies.map((m) => `
+    <button type="button" class="movie" data-id="${esc(m.id)}">
+      <div class="poster" ${m.poster ? `style="background-image:url('${esc(m.poster)}')"` : ""}>${m.poster ? "" : "🎞️"}</div>
+      <div class="check">✓</div>
+      <div class="body">
+        <div class="title">${esc(m.title)}${m.year ? ` <span class="muted">(${esc(m.year)})</span>` : ""}</div>
+        ${m.description ? `<div class="desc">${esc(m.description)}</div>` : ""}
+      </div>
+    </button>`).join("");
+  show("voteView");
+}
+
+$("movies").addEventListener("click", (e) => {
+  const card = e.target.closest(".movie");
+  if (!card) return;
+  selected = card.dataset.id;
+  document.querySelectorAll(".movie").forEach((c) => c.classList.toggle("selected", c === card));
+  $("chosen").textContent = movies.find((m) => m.id === selected).title;
+  $("chosen").classList.remove("muted");
+  $("form").scrollIntoView({ behavior: "smooth", block: "start" });
+});
+
+$("form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const msg = (cls, text) => ($("msg").innerHTML = `<div class="msg ${cls}">${esc(text)}</div>`);
+  const firstName = $("firstName").value.trim(), lastName = $("lastName").value.trim();
+  if (!selected) return msg("err", "Сначала выберите фильм.");
+  if (firstName.length < 2 || lastName.length < 2) return msg("err", "Введите имя и фамилию.");
+
+  $("submit").disabled = true;
+  try {
+    const r = await fetch("/api/vote", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ movieId: selected, firstName, lastName, reason: $("reason").value }),
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data.error || "Ошибка, попробуйте ещё раз.");
+    store.set("voted:" + poll.id, data.movieTitle);
+    $("doneText").textContent = `${firstName}, ваш голос за «${data.movieTitle}» засчитан.`;
+    show("doneView");
+  } catch (err) {
+    msg("err", err.message || "Нет связи. Попробуйте ещё раз.");
+  } finally {
+    $("submit").disabled = false;
+  }
+});
+
+load();
+</script>
+</body>
+</html>

@@ -1,0 +1,418 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Movie Club — админка</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<main class="wrap">
+
+  <!-- login -->
+  <section id="loginView" class="panel" style="max-width:400px;margin:15vh auto 0">
+    <h2>🔐 Админка Movie Club</h2>
+    <form id="loginForm">
+      <div class="field"><label for="pw">Пароль</label><input id="pw" type="password" autocomplete="current-password"></div>
+      <button class="primary" type="submit">Войти</button>
+      <div id="loginMsg"></div>
+    </form>
+  </section>
+
+  <!-- dashboard -->
+  <section id="dash" class="hidden">
+    <div class="top">
+      <div>
+        <div class="muted small">🎬 MOVIE CLUB · АДМИНКА</div>
+        <h1 id="pollTitle"></h1>
+        <div class="row"><span id="pollBadge"></span><span class="muted small" id="pollWhen"></span></div>
+      </div>
+      <div class="row">
+        <select id="historySel" style="width:auto"></select>
+        <button id="refreshBtn">↻ Обновить</button>
+        <button id="logoutBtn" class="link">Выйти</button>
+      </div>
+    </div>
+
+    <div class="kpis">
+      <div class="kpi"><div class="v" id="kTotal">0</div><div class="l">голосов всего</div></div>
+      <div class="kpi"><div class="v" id="kLeader">—</div><div class="l">лидирует</div></div>
+      <div class="kpi"><div class="v" id="kStudents">0</div><div class="l">учеников проголосовало</div></div>
+      <div class="kpi"><div class="v" id="kAdmin">0</div><div class="l">голосов добавлено админом</div></div>
+    </div>
+
+    <div class="panel">
+      <h2>Результаты</h2>
+      <div class="legend"><span><i></i>ученики</span><span><i class="adm"></i>админ</span></div>
+      <div id="bars"></div>
+    </div>
+
+    <div class="panel timeline">
+      <div class="top"><h2 style="margin:0">Когда голосовали</h2><span class="muted small" id="tlUnit"></span></div>
+      <div id="timeline"></div>
+    </div>
+
+    <div class="panel">
+      <div class="top">
+        <h2 style="margin:0">Все голоса</h2>
+        <div class="row">
+          <select id="typeFilter" style="width:auto">
+            <option value="">Все</option>
+            <option value="student">Только ученики</option>
+            <option value="admin">Только админ</option>
+          </select>
+          <input id="search" placeholder="Поиск по имени / фильму / причине" style="width:240px;max-width:100%">
+          <button id="csvBtn">⬇ CSV</button>
+        </div>
+      </div>
+      <div class="table-wrap" style="margin-top:12px">
+        <table>
+          <thead><tr><th>#</th><th>Время</th><th>Тип</th><th>Имя</th><th>Фильм</th><th>Голосов</th><th>Почему / заметка</th><th></th></tr></thead>
+          <tbody id="votesBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="manage">
+      <div class="panel">
+        <h2>Голосование</h2>
+        <div class="grid2">
+          <div class="field"><label for="titleInp">Название (видят ученики)</label><input id="titleInp" maxlength="120"></div>
+          <div class="field"><label>&nbsp;</label><button id="saveTitleBtn">Сохранить название</button></div>
+        </div>
+
+        <div class="row" style="margin:4px 0 18px">
+          <button class="primary" id="startBtn">▶ Начать сейчас</button>
+          <button class="danger" id="stopBtn">■ Остановить сейчас</button>
+        </div>
+
+        <div class="sched">
+          <div><label for="startInp">Начало</label><input id="startInp" type="datetime-local"></div>
+          <div><label for="endInp">Окончание</label><input id="endInp" type="datetime-local"></div>
+          <button id="saveSchedBtn">Сохранить расписание</button>
+        </div>
+        <p class="muted small" style="margin-top:8px">Пустое поле — без ограничения. Можно задать даты заранее: голосование само откроется и закроется в указанное время.</p>
+        <p class="muted small">Ссылка для учеников: <a id="publicLink" style="color:var(--accent)"></a></p>
+      </div>
+
+      <div class="panel">
+        <h2>Добавить голоса вручную</h2>
+        <p class="muted small" style="margin-top:-6px">Такие голоса помечаются как «админ» и показываются отдельно. Открыто или закрыто голосование — не важно.</p>
+        <form id="manualForm">
+          <div class="grid2">
+            <div class="field"><label for="mvMovie">Фильм *</label><select id="mvMovie" required></select></div>
+            <div class="field"><label for="mvName">От чьего имени</label><input id="mvName" maxlength="80" placeholder="Например: Учитель"></div>
+          </div>
+          <div class="grid2">
+            <div class="field"><label for="mvCount">Количество голосов *</label><input id="mvCount" type="number" min="1" max="1000" value="1" required></div>
+            <div class="field"><label for="mvNote">Заметка</label><input id="mvNote" maxlength="500" placeholder="Например: голоса с бумажного опроса"></div>
+          </div>
+          <button class="primary" type="submit">+ Добавить голоса</button>
+        </form>
+      </div>
+
+      <div class="panel">
+        <h2>Фильмы</h2>
+        <div class="mlist" id="movieList"></div>
+        <form id="movieForm" style="margin-top:16px">
+          <div class="grid2">
+            <div class="field"><label for="mTitle">Название *</label><input id="mTitle" maxlength="120" required></div>
+            <div class="field"><label for="mYear">Год</label><input id="mYear" maxlength="4" inputmode="numeric"></div>
+          </div>
+          <div class="field"><label for="mPoster">Ссылка на постер (https://…)</label><input id="mPoster" type="url"></div>
+          <div class="field"><label for="mDesc">Короткое описание</label><textarea id="mDesc" maxlength="400" style="min-height:60px"></textarea></div>
+          <button class="primary" type="submit">+ Добавить фильм</button>
+        </form>
+      </div>
+
+      <div class="panel">
+        <h2>Новое голосование</h2>
+        <p class="muted small">Текущее уйдёт в архив (останется в списке сверху), голоса начнутся с нуля.</p>
+        <div class="grid2">
+          <div class="field"><input id="newTitle" placeholder="Например: Movie Club — декабрь"></div>
+          <div class="field row"><label class="row" style="margin:0;color:var(--text)"><input type="checkbox" id="keepMovies" style="width:auto"> оставить те же фильмы</label></div>
+        </div>
+        <button class="danger" id="newPollBtn">Начать новое голосование</button>
+      </div>
+
+      <div class="panel">
+        <h2>Telegram</h2>
+        <p class="muted small" id="tgState"></p>
+        <button id="tgBtn">Подключить бота (webhook)</button>
+      </div>
+    </div>
+    <div id="toast"></div>
+  </section>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const ss = {
+  get(k) { try { return sessionStorage.getItem(k); } catch { return null; } },
+  set(k, v) { try { sessionStorage.setItem(k, v); } catch {} },
+  del(k) { try { sessionStorage.removeItem(k); } catch {} },
+};
+const fmt = (iso, opts = { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) => new Date(iso).toLocaleString("ru-RU", opts);
+const toLocalInput = (iso) => {
+  if (!iso) return "";
+  const d = new Date(iso);
+  return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+};
+const fromLocalInput = (v) => (v ? new Date(v).toISOString() : null);
+const W = (v) => v.weight || 1;
+
+let pw = ss.get("mc-pw") || "";
+let data = null, viewPoll = null, timer = null, schedDirty = false;
+
+async function api(path, { method = "GET", body } = {}) {
+  const r = await fetch("/api/admin/" + path, {
+    method,
+    headers: { "x-admin-password": pw, ...(body ? { "content-type": "application/json" } : {}) },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const j = await r.json().catch(() => ({}));
+  if (r.status === 401) { logout(); throw new Error(j.error || "Неверный пароль"); }
+  if (!r.ok) throw new Error(j.error || "Ошибка " + r.status);
+  return j;
+}
+
+function toast(text, cls = "ok") {
+  $("toast").innerHTML = `<div class="msg ${cls}" style="position:fixed;bottom:16px;left:16px;right:16px;max-width:420px;margin:auto;z-index:9">${esc(text)}</div>`;
+  setTimeout(() => ($("toast").innerHTML = ""), 3000);
+}
+const guard = (fn) => async (...a) => { try { await fn(...a); } catch (e) { toast(e.message, "err"); } };
+
+// ---------- auth ----------
+$("loginForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  pw = $("pw").value;
+  try {
+    await load();
+    ss.set("mc-pw", pw);
+  } catch (err) {
+    $("loginMsg").innerHTML = `<div class="msg err">${esc(err.message)}</div>`;
+  }
+});
+function logout() {
+  pw = ""; ss.del("mc-pw"); clearInterval(timer);
+  $("dash").classList.add("hidden"); $("loginView").classList.remove("hidden");
+}
+$("logoutBtn").onclick = logout;
+
+// ---------- load + render ----------
+async function load() {
+  data = await api("data" + (viewPoll ? "?poll=" + encodeURIComponent(viewPoll) : ""));
+  $("loginView").classList.add("hidden");
+  $("dash").classList.remove("hidden");
+  render();
+  clearInterval(timer);
+  timer = setInterval(() => { if (!document.hidden) load().catch(() => {}); }, 15000);
+}
+
+function render() {
+  const { poll, movies, votes, history, current } = data;
+  const isCurrent = poll.id === current;
+
+  // header + status
+  $("pollTitle").textContent = poll.title;
+  $("pollBadge").innerHTML = !isCurrent ? '<span class="badge closed">архив</span>'
+    : { open: '<span class="badge open">идёт</span>', scheduled: '<span class="badge soon">запланировано</span>', ended: '<span class="badge closed">завершено</span>' }[poll.status];
+  $("pollWhen").textContent =
+    (poll.startsAt ? "с " + fmt(poll.startsAt) : "") +
+    (poll.endsAt ? " до " + fmt(poll.endsAt) : poll.status !== "ended" ? " · без окончания" : "") +
+    " · обновлено " + new Date().toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  $("manage").classList.toggle("hidden", !isCurrent);
+
+  $("historySel").innerHTML =
+    `<option value="${esc(current)}">Текущее голосование</option>` +
+    (history || []).map((h) => `<option value="${esc(h.id)}">${esc(h.title)} · ${fmt(h.createdAt, { day: "2-digit", month: "2-digit", year: "2-digit" })}</option>`).join("");
+  $("historySel").value = poll.id;
+
+  // counts (weighted), split student/admin
+  const rowsById = new Map(movies.map((m) => [m.id, { id: m.id, title: m.title, st: 0, ad: 0 }]));
+  for (const v of votes) {
+    if (!rowsById.has(v.movieId)) rowsById.set(v.movieId, { id: v.movieId, title: v.movieTitle + " (удалён)", st: 0, ad: 0 });
+    rowsById.get(v.movieId)[v.source === "admin" ? "ad" : "st"] += W(v);
+  }
+  const rows = [...rowsById.values()].map((r) => ({ ...r, n: r.st + r.ad })).sort((a, b) => b.n - a.n);
+  const max = Math.max(1, ...rows.map((r) => r.n));
+  const total = rows.reduce((s, r) => s + r.n, 0);
+  const adminTotal = rows.reduce((s, r) => s + r.ad, 0);
+
+  $("kTotal").textContent = total;
+  $("kLeader").textContent = total ? rows[0].title : "—";
+  $("kLeader").style.fontSize = total && rows[0].title.length > 14 ? "18px" : "";
+  $("kStudents").textContent = votes.filter((v) => v.source !== "admin").length;
+  $("kAdmin").textContent = adminTotal;
+
+  $("bars").innerHTML = rows.length ? rows.map((r, i) => `
+    <div class="bar-row ${i === 0 && r.n ? "lead" : ""}">
+      <div class="name" title="${esc(r.title)}">${esc(r.title)}</div>
+      <div class="bar" title="ученики: ${r.st}, админ: ${r.ad}">
+        <span style="width:${(r.st / max) * 100}%"></span><span class="adm" style="width:${(r.ad / max) * 100}%"></span>
+      </div>
+      <div class="n">${r.n} <span class="muted small">${total ? Math.round((r.n / total) * 100) : 0}%</span></div>
+    </div>`).join("") : '<p class="muted">Добавьте фильмы ниже.</p>';
+
+  renderTimeline(votes);
+  renderTable();
+
+  if (!isCurrent) return;
+
+  // manage
+  if (document.activeElement !== $("titleInp")) $("titleInp").value = poll.title;
+  if (!schedDirty) { $("startInp").value = toLocalInput(poll.startsAt); $("endInp").value = toLocalInput(poll.endsAt); }
+  $("startBtn").disabled = poll.status === "open";
+  $("stopBtn").disabled = poll.status === "ended";
+  $("publicLink").href = $("publicLink").textContent = location.origin + "/";
+
+  const sel = $("mvMovie").value;
+  $("mvMovie").innerHTML = movies.length
+    ? movies.map((m) => `<option value="${esc(m.id)}">${esc(m.title)}</option>`).join("")
+    : '<option value="">— сначала добавьте фильм —</option>';
+  if (movies.some((m) => m.id === sel)) $("mvMovie").value = sel;
+
+  $("movieList").innerHTML = movies.length ? movies.map((m) => {
+    const r = rowsById.get(m.id);
+    return `<div class="mitem">
+        <span>${esc(m.title)}${m.year ? ` <span class="muted">(${esc(m.year)})</span>` : ""} · <span class="muted small">${r.st + r.ad} гол.</span></span>
+        <button class="link" data-del-movie="${esc(m.id)}">удалить</button>
+      </div>`;
+  }).join("") : '<p class="muted small">Фильмов пока нет.</p>';
+
+  $("tgState").textContent = data.telegram
+    ? "Переменные TG_BOT_TOKEN и TG_CHAT_ID заданы. Нажмите кнопку один раз после деплоя, чтобы бот отвечал на /stats."
+    : "Не настроено: добавьте TG_BOT_TOKEN и TG_CHAT_ID в переменные окружения (локально — в файл .env).";
+  $("tgBtn").disabled = !data.telegram;
+}
+
+function renderTimeline(votes) {
+  const el = $("timeline");
+  if (!votes.length) { el.innerHTML = '<p class="muted">Голосов пока нет.</p>'; $("tlUnit").textContent = ""; return; }
+  const t0 = new Date(votes[0].ts), t1 = new Date(votes[votes.length - 1].ts);
+  const hourly = t1 - t0 <= 48 * 3600e3;
+  const step = hourly ? 3600e3 : 86400e3;
+  const floor = (d) => { const x = new Date(d); hourly ? x.setMinutes(0, 0, 0) : x.setHours(0, 0, 0, 0); return x.getTime(); };
+  const start = floor(t0), end = floor(t1);
+  const buckets = [];
+  for (let t = start; t <= end; t += step) buckets.push({ t, n: 0 });
+  for (const v of votes) buckets[Math.round((floor(v.ts) - start) / step)].n += W(v);
+  $("tlUnit").textContent = hourly ? "по часам" : "по дням";
+
+  // draw at the real pixel width so text is never stretched
+  const Wd = Math.max(280, el.clientWidth || 800), H = 180, pad = 22, max = Math.max(...buckets.map((b) => b.n));
+  const bw = (Wd - 10) / buckets.length;
+  const every = Math.ceil(buckets.length / Math.max(3, Math.floor(Wd / 70)));
+  el.innerHTML = `<svg viewBox="0 0 ${Wd} ${H}" width="${Wd}" height="${H}" role="img" aria-label="Голоса по времени">
+    ${buckets.map((b, i) => {
+      const h = b.n ? Math.max(3, ((H - pad - 16) * b.n) / max) : 0;
+      const x = 5 + i * bw, y = H - pad - h;
+      const label = hourly ? fmt(b.t, { hour: "2-digit", minute: "2-digit" }) : fmt(b.t, { day: "2-digit", month: "2-digit" });
+      return `<g><title>${label}: ${b.n}</title>
+        <rect x="${x + bw * 0.12}" y="${y}" width="${bw * 0.76}" height="${h}" rx="3" fill="var(--accent)"></rect>
+        ${b.n ? `<text x="${x + bw / 2}" y="${y - 4}" text-anchor="middle" font-size="12" fill="var(--muted)">${b.n}</text>` : ""}
+        ${i % every === 0 ? `<text x="${x + bw / 2}" y="${H - 6}" text-anchor="middle" font-size="11" fill="var(--muted)">${label}</text>` : ""}</g>`;
+    }).join("")}
+    <line x1="0" x2="${Wd}" y1="${H - pad}" y2="${H - pad}" stroke="var(--line)"></line>
+  </svg>`;
+}
+
+function renderTable() {
+  const q = $("search").value.trim().toLowerCase();
+  const type = $("typeFilter").value;
+  const isCurrent = data.poll.id === data.current;
+  const list = data.votes.map((v, i) => ({ ...v, n: i + 1 })).reverse()
+    .filter((v) => !type || (v.source === "admin" ? "admin" : "student") === type)
+    .filter((v) => !q || `${v.name} ${v.movieTitle} ${v.reason}`.toLowerCase().includes(q));
+  $("votesBody").innerHTML = list.length ? list.map((v) => `
+    <tr>
+      <td class="muted">${v.n}</td>
+      <td style="white-space:nowrap">${fmt(v.ts)}</td>
+      <td>${v.source === "admin" ? '<span class="badge admin">админ</span>' : '<span class="badge student">ученик</span>'}</td>
+      <td>${esc(v.name)}</td>
+      <td>${esc(v.movieTitle)}</td>
+      <td>${W(v)}</td>
+      <td class="reason">${v.reason ? esc(v.reason) : '<span class="muted">—</span>'}</td>
+      <td>${isCurrent ? `<button class="link" data-del-vote="${esc(v.key)}" title="Удалить">✕</button>` : ""}</td>
+    </tr>`).join("") : `<tr><td colspan="8" class="muted">Ничего не найдено</td></tr>`;
+}
+
+// ---------- actions ----------
+$("search").addEventListener("input", renderTable);
+let rz;
+addEventListener("resize", () => { clearTimeout(rz); rz = setTimeout(() => data && renderTimeline(data.votes), 150); });
+$("typeFilter").addEventListener("change", renderTable);
+$("refreshBtn").onclick = guard(load);
+$("historySel").onchange = guard(async (e) => { viewPoll = e.target.value === data.current ? null : e.target.value; await load(); });
+
+$("saveTitleBtn").onclick = guard(async () => { await api("poll", { method: "PUT", body: { title: $("titleInp").value } }); toast("Сохранено"); await load(); });
+
+$("startBtn").onclick = guard(async () => { await api("poll/start", { method: "POST" }); schedDirty = false; toast("Голосование начато"); await load(); });
+$("stopBtn").onclick = guard(async () => {
+  if (!confirm("Остановить голосование сейчас?")) return;
+  await api("poll/stop", { method: "POST" }); schedDirty = false; toast("Голосование остановлено"); await load();
+});
+
+for (const id of ["startInp", "endInp"]) $(id).addEventListener("input", () => (schedDirty = true));
+$("saveSchedBtn").onclick = guard(async () => {
+  await api("poll", { method: "PUT", body: { startsAt: fromLocalInput($("startInp").value), endsAt: fromLocalInput($("endInp").value) } });
+  schedDirty = false;
+  toast("Расписание сохранено");
+  await load();
+});
+
+$("manualForm").addEventListener("submit", guard(async (e) => {
+  e.preventDefault();
+  const count = Number($("mvCount").value);
+  const title = $("mvMovie").selectedOptions[0]?.textContent;
+  await api("manual-vote", { method: "POST", body: { movieId: $("mvMovie").value, name: $("mvName").value, count, note: $("mvNote").value } });
+  $("mvCount").value = 1; $("mvNote").value = "";
+  toast(`Добавлено ${count} гол. за «${title}»`);
+  await load();
+}));
+
+$("movieForm").addEventListener("submit", guard(async (e) => {
+  e.preventDefault();
+  await api("movie", { method: "POST", body: { title: $("mTitle").value, year: $("mYear").value, poster: $("mPoster").value, description: $("mDesc").value } });
+  e.target.reset();
+  toast("Фильм добавлен");
+  await load();
+}));
+
+document.addEventListener("click", guard(async (e) => {
+  const mv = e.target.closest("[data-del-movie]");
+  if (mv && confirm("Удалить фильм? Голоса за него останутся в статистике.")) {
+    await api("movie?id=" + encodeURIComponent(mv.dataset.delMovie), { method: "DELETE" }); await load();
+  }
+  const vt = e.target.closest("[data-del-vote]");
+  if (vt && confirm("Удалить эту запись?")) {
+    await api("vote?key=" + encodeURIComponent(vt.dataset.delVote), { method: "DELETE" }); await load();
+  }
+}));
+
+$("newPollBtn").onclick = guard(async () => {
+  if (!confirm("Начать новое голосование? Текущее уйдёт в архив.")) return;
+  await api("new-poll", { method: "POST", body: { title: $("newTitle").value, keepMovies: $("keepMovies").checked } });
+  $("newTitle").value = ""; viewPoll = null; schedDirty = false;
+  toast("Новое голосование создано");
+  await load();
+});
+
+$("tgBtn").onclick = guard(async () => { await api("telegram-setup", { method: "POST" }); toast("Бот подключён — проверьте Telegram"); });
+
+$("csvBtn").onclick = () => {
+  const rows = [["Время", "Тип", "Имя", "Фильм", "Голосов", "Почему / заметка"],
+    ...data.votes.map((v) => [fmt(v.ts, { dateStyle: "short", timeStyle: "short" }), v.source === "admin" ? "админ" : "ученик", v.name, v.movieTitle, W(v), v.reason])];
+  const csv = "﻿" + rows.map((r) => r.map((c) => `"${String(c ?? "").replace(/"/g, '""')}"`).join(";")).join("\r\n");
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+  a.download = `movie-club-${data.poll.id}.csv`;
+  a.click();
+};
+
+if (pw) load().catch(() => logout());
+</script>
+</body>
+</html>

@@ -1,0 +1,13 @@
+{
+  "name": "movie-club-vote",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node dev-server.mjs",
+    "deploy": "npx netlify-cli deploy --prod",
+    "tg:chatid": "node tg-chatid.mjs"
+  },
+  "dependencies": {
+    "@netlify/blobs": "^11.1.9"
+  }
+}
